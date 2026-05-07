@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # MongoDB Database (Optional, for queue data)
+  mongodb:
+    image: mongo:latest
+    container_name: antrian-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-admin123}
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - antrian-network
+
+  # Python FastAPI Backend Server
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: antrian-backend
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "${SERVER_PORT:-8000}:8000"
+    depends_on:
+      - mongodb
+    networks:
+      - antrian-network
+
+  # React Vite Frontend Client
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: antrian-frontend
+    restart: unless-stopped
+    ports:
+      - "${CLIENT_PORT:-3000}:80"
+    depends_on:
+      - backend
+    networks:
+      - antrian-network
+
+networks:
+  antrian-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
