@@ -14,6 +14,8 @@ pydantic = ">=1.6.1"
 starlette = ">=0.13.6"
 python-socketio = ">=4.6.0"
 python-engineio = "*"
+pymysql = "*"
+cryptography = "*"
 
 [test]
 pytest = ">=6.0.1"
