@@ -43,7 +43,7 @@ Realtime_Antrian_Python/
     │   ├── loket.py            # Loket CRUD REST API
     │   ├── groups.py           # Groups CRUD REST API
     │   ├── users.py            # Users CRUD REST API
-    │   ├── antrian.py          # Transaksi antrian harian [TODO]
+    │   ├── antrian.py          # Antrian CRUD REST API
     │   └── panggilan.py        # Logika panggilan [TODO]
     ├── requirements.txt        # PIP dependencies
     └── setup.py                # Package installer
@@ -121,6 +121,24 @@ Modul `groups` menangani hak akses / role (Group Management via Ion Auth) besert
 
 ---
 
+## Modul Antrian — `/api/antrian`
+
+Modul `antrian` mengelola data transaksi antrian harian, pengambilan tiket baru, serta flow panggilan antrian loket.
+
+### Daftar Endpoint
+
+| Method   | Endpoint                       | Keterangan                                                                       |
+| -------- | ------------------------------ | -------------------------------------------------------------------------------- |
+| `GET`    | `/api/antrian`                 | Mengambil rekap status & list transaksi harian (opsional filter `?tanggal=`)     |
+| `POST`   | `/api/antrian`                 | Membuat nomor antrian baru (menggenerate tiket harian, otomatis broadcast TV)    |
+| `POST`   | `/api/antrian/call`            | Memanggil antrian berikutnya di loket tertentu (hanya DB, tanpa broadcast TV)   |
+| `POST`   | `/api/antrian/panggilansimpan` | Menyimpan panggilan manual/panggil ulang (bisa mendeteksi panggilan ulang)       |
+| `PUT`    | `/api/antrian/selesai/{id}`    | Mengupdate status antrian menjadi selesai                                         |
+| `PUT`    | `/api/antrian/batal/{id}`      | Mengupdate status antrian menjadi batal                                           |
+| `DELETE` | `/api/antrian/{id}`            | Menghapus record transaksi antrian                                               |
+
+---
+
 ## Cara Menjalankan
 
 ### Menggunakan Docker Compose (Direkomendasikan)
@@ -176,6 +194,6 @@ Modul `groups` menangani hak akses / role (Group Management via Ion Auth) besert
 - [x] Implementasi Modul `loket` (FastAPI Router + Pivot Users Sync + PyMySQL)
 - [x] Implementasi Modul `users` (FastAPI Router + Bcrypt Hash + Groups Sync)
 - [x] Implementasi Modul `groups` (FastAPI Router + Admin Protections)
-- [ ] Implementasi Modul `antrian`
+- [x] Implementasi Modul `antrian` (FastAPI Router + Daily Reset + Socket.IO)
 - [ ] Integrasi Realtime WebSocket (Socket.IO)
 - [ ] Integrasi Audio Voice Generator (`edge-tts`/`piper-tts`)

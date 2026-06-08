@@ -160,6 +160,30 @@ def init_db():
               CONSTRAINT `fk_users_groups_users1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
             """)
+            
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS `antrian` (
+              `id` bigint(20) NOT NULL AUTO_INCREMENT,
+              `tanggal` date NOT NULL COMMENT 'Tanggal antrian terjadi (untuk reset harian)',
+              `id_layanan` int(11) NOT NULL,
+              `nomor_antrian` varchar(20) NOT NULL COMMENT 'Nomor urut gabungan (Misal: A12)',
+              `nomor_urut` int(11) NOT NULL COMMENT 'Angka murninya saja (Misal: 12)',
+              `status` enum('menunggu','dipanggil','selesai','batal') DEFAULT 'menunggu',
+              `id_loket` int(11) DEFAULT NULL COMMENT 'Loket mana yang memanggil antrian ini',
+              `waktu_ambil` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              `waktu_panggil` datetime DEFAULT NULL,
+              `waktu_selesai` datetime DEFAULT NULL,
+              `nik` varchar(16) DEFAULT NULL,
+              `keterangan` text DEFAULT NULL,
+              PRIMARY KEY (`id`),
+              KEY `id_layanan` (`id_layanan`),
+              KEY `id_loket` (`id_loket`),
+              KEY `idx_tanggal` (`tanggal`),
+              KEY `idx_status` (`status`),
+              CONSTRAINT `antrian_ibfk_1` FOREIGN KEY (`id_layanan`) REFERENCES `layanan` (`id`) ON DELETE CASCADE,
+              CONSTRAINT `antrian_ibfk_2` FOREIGN KEY (`id_loket`) REFERENCES `loket` (`id`) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+            """)
     finally:
         conn.close()
 
