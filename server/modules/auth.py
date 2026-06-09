@@ -32,6 +32,19 @@ class LoginRequest(BaseModel):
                           description="Password (wajib)")
 
 
+class RegisterRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=100,
+                       description="Email user (wajib)")
+    password: str = Field(..., min_length=6, max_length=255,
+                          description="Password (wajib, min 6 karakter)")
+    username: Optional[str] = Field(None, max_length=100,
+                                    description="Username (opsional, auto-generate dari email kalau kosong)")
+    first_name: Optional[str] = Field(None, max_length=50)
+    last_name: Optional[str] = Field(None, max_length=50)
+    phone: Optional[str] = Field(None, max_length=20)
+    company: Optional[str] = Field(None, max_length=100)
+
+
 # ---------------------------------------------------------------------------
 # API Router
 # ---------------------------------------------------------------------------
@@ -51,6 +64,11 @@ def verify_password(plain: str, hashed: str) -> bool:
         return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
     except Exception:
         return False
+
+
+def hash_password(plain: str) -> str:
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(plain.encode("utf-8"), salt).decode("utf-8")
 
 
 def _is_email(s: str) -> bool:
@@ -188,6 +206,91 @@ def get_current_user(
             user_dict["_token_jti"] = jti
             user_dict["_token_exp"] = int(payload.get("exp", 0))
             return user_dict
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# POST /api/auth/register
+# ---------------------------------------------------------------------------
+@router.post("/register", status_code=status.HTTP_201_CREATED)
+def register(request: Request, body: RegisterRequest, response: Response):
+    """
+    Body: {email, password, username?, first_name?, last_name?, phone?, company?}
+    Membuat akun baru + langsung mengembalikan token JWT (auto-login).
+    """
+    email = body.email.strip().lower()
+    if not _is_email(email):
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"status": False, "message": "Format email tidak valid"}
+
+    # Tentukan username: dari input, atau auto-generate dari nama/email
+    raw_username = (body.username or "").strip()
+    if not raw_username:
+        raw_username = f"{body.first_name or ''} {body.last_name or ''}".strip().lower()
+        if not raw_username:
+            raw_username = email.split("@")[0].lower()
+    # Sanitasi: hilangkan spasi ganda
+    username = re.sub(r"\s+", " ", raw_username)
+
+    conn = get_db_conn()
+    try:
+        with conn.cursor() as cursor:
+            # Cek email unik
+            cursor.execute("SELECT id FROM users WHERE email = %s LIMIT 1", (email,))
+            if cursor.fetchone():
+                response.status_code = status.HTTP_409_CONFLICT
+                return {"status": False, "message": "Email sudah terdaftar"}
+
+            # Cek username unik
+            cursor.execute("SELECT id FROM users WHERE username = %s LIMIT 1", (username,))
+            if cursor.fetchone():
+                response.status_code = status.HTTP_409_CONFLICT
+                return {"status": False, "message": "Username sudah terdaftar"}
+
+            ip_address = request.client.host if request.client else "127.0.0.1"
+            hashed_pwd = hash_password(body.password)
+            created_on = int(time.time())
+
+            cursor.execute("""
+                INSERT INTO users
+                    (ip_address, username, password, email, created_on, active,
+                     first_name, last_name, company, phone)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                ip_address,
+                username,
+                hashed_pwd,
+                email,
+                created_on,
+                1,  # default active
+                body.first_name,
+                body.last_name,
+                body.company,
+                body.phone,
+            ))
+            new_id = cursor.lastrowid
+
+            issued = create_access_token(new_id, username)
+            return {
+                "status": True,
+                "message": "Registrasi berhasil",
+                "data": {
+                    "token": issued["token"],
+                    "token_type": "Bearer",
+                    "expires_at": issued["exp"].strftime("%Y-%m-%d %H:%M:%S"),
+                    "user": {
+                        "id": new_id,
+                        "username": username,
+                        "email": email,
+                        "first_name": body.first_name,
+                        "last_name": body.last_name,
+                    },
+                },
+            }
+    except Exception as e:
+        response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        return {"status": False, "message": f"Gagal registrasi: {str(e)}"}
     finally:
         conn.close()
 
