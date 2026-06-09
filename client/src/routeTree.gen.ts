@@ -9,15 +9,22 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingDisplayRouteImport } from './routes/setting-display'
 import { Route as PenggunaRouteImport } from './routes/pengguna'
 import { Route as PanggilanRouteImport } from './routes/panggilan'
 import { Route as LoketRouteImport } from './routes/loket'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayananRouteImport } from './routes/layanan'
 import { Route as GrupKeamananRouteImport } from './routes/grup-keamanan'
+import { Route as DisplayClientRouteImport } from './routes/display-client'
 import { Route as AntrianRouteImport } from './routes/antrian'
 import { Route as IndexRouteImport } from './routes/index'
 
+const SettingDisplayRoute = SettingDisplayRouteImport.update({
+  id: '/setting-display',
+  path: '/setting-display',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PenggunaRoute = PenggunaRouteImport.update({
   id: '/pengguna',
   path: '/pengguna',
@@ -48,6 +55,11 @@ const GrupKeamananRoute = GrupKeamananRouteImport.update({
   path: '/grup-keamanan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DisplayClientRoute = DisplayClientRouteImport.update({
+  id: '/display-client',
+  path: '/display-client',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AntrianRoute = AntrianRouteImport.update({
   id: '/antrian',
   path: '/antrian',
@@ -62,80 +74,101 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/antrian': typeof AntrianRoute
+  '/display-client': typeof DisplayClientRoute
   '/grup-keamanan': typeof GrupKeamananRoute
   '/layanan': typeof LayananRoute
   '/login': typeof LoginRoute
   '/loket': typeof LoketRoute
   '/panggilan': typeof PanggilanRoute
   '/pengguna': typeof PenggunaRoute
+  '/setting-display': typeof SettingDisplayRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/antrian': typeof AntrianRoute
+  '/display-client': typeof DisplayClientRoute
   '/grup-keamanan': typeof GrupKeamananRoute
   '/layanan': typeof LayananRoute
   '/login': typeof LoginRoute
   '/loket': typeof LoketRoute
   '/panggilan': typeof PanggilanRoute
   '/pengguna': typeof PenggunaRoute
+  '/setting-display': typeof SettingDisplayRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/antrian': typeof AntrianRoute
+  '/display-client': typeof DisplayClientRoute
   '/grup-keamanan': typeof GrupKeamananRoute
   '/layanan': typeof LayananRoute
   '/login': typeof LoginRoute
   '/loket': typeof LoketRoute
   '/panggilan': typeof PanggilanRoute
   '/pengguna': typeof PenggunaRoute
+  '/setting-display': typeof SettingDisplayRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/antrian'
+    | '/display-client'
     | '/grup-keamanan'
     | '/layanan'
     | '/login'
     | '/loket'
     | '/panggilan'
     | '/pengguna'
+    | '/setting-display'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/antrian'
+    | '/display-client'
     | '/grup-keamanan'
     | '/layanan'
     | '/login'
     | '/loket'
     | '/panggilan'
     | '/pengguna'
+    | '/setting-display'
   id:
     | '__root__'
     | '/'
     | '/antrian'
+    | '/display-client'
     | '/grup-keamanan'
     | '/layanan'
     | '/login'
     | '/loket'
     | '/panggilan'
     | '/pengguna'
+    | '/setting-display'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AntrianRoute: typeof AntrianRoute
+  DisplayClientRoute: typeof DisplayClientRoute
   GrupKeamananRoute: typeof GrupKeamananRoute
   LayananRoute: typeof LayananRoute
   LoginRoute: typeof LoginRoute
   LoketRoute: typeof LoketRoute
   PanggilanRoute: typeof PanggilanRoute
   PenggunaRoute: typeof PenggunaRoute
+  SettingDisplayRoute: typeof SettingDisplayRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/setting-display': {
+      id: '/setting-display'
+      path: '/setting-display'
+      fullPath: '/setting-display'
+      preLoaderRoute: typeof SettingDisplayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pengguna': {
       id: '/pengguna'
       path: '/pengguna'
@@ -178,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GrupKeamananRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/display-client': {
+      id: '/display-client'
+      path: '/display-client'
+      fullPath: '/display-client'
+      preLoaderRoute: typeof DisplayClientRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/antrian': {
       id: '/antrian'
       path: '/antrian'
@@ -198,12 +238,14 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AntrianRoute: AntrianRoute,
+  DisplayClientRoute: DisplayClientRoute,
   GrupKeamananRoute: GrupKeamananRoute,
   LayananRoute: LayananRoute,
   LoginRoute: LoginRoute,
   LoketRoute: LoketRoute,
   PanggilanRoute: PanggilanRoute,
   PenggunaRoute: PenggunaRoute,
+  SettingDisplayRoute: SettingDisplayRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
