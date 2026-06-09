@@ -1,20 +1,27 @@
 version: '3.8'
 
 services:
-  # MongoDB Database (Optional, for queue data)
-  mongodb:
-    image: mongo:latest
-    container_name: antrian-mongo
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: antrian-mysql
     restart: unless-stopped
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-admin}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-admin123}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-antrian_db}
+      MYSQL_USER: ${MYSQL_USER:-antrian_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-antrian_pass}
     ports:
-      - "${MONGO_PORT:-27017}:27017"
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
-      - mongodb_data:/data/db
+      - mysql_data:/var/lib/mysql
     networks:
       - antrian-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Python FastAPI Backend Server
   backend:
@@ -28,7 +35,8 @@ services:
     ports:
       - "${SERVER_PORT:-8000}:8000"
     depends_on:
-      - mongodb
+      mysql:
+        condition: service_healthy
     networks:
       - antrian-network
 
@@ -51,4 +59,4 @@ networks:
     driver: bridge
 
 volumes:
-  mongodb_data:
+  mysql_data:
