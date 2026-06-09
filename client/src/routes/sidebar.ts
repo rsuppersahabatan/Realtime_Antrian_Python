@@ -25,15 +25,14 @@ export type SidebarRoute = {
 };
 
 const routes: SidebarRoute[] = [
-  {
-    icon: 'PagesIcon',
-    name: 'Pages',
-    routes: [
-      { path: '/login', name: 'Login' },
-      { path: '/app/404', name: '404' },
-      { path: '/app/blank', name: 'Blank' },
-    ],
-  },
+  { path: '/layanan', icon: 'FormsIcon', name: 'Layanan' },
+  { path: '/loket', icon: 'CardsIcon', name: 'Loket' },
+  { path: '/display-client', icon: 'PagesIcon', name: 'Display Client' },
+  { path: '/setting-display', icon: 'OutlineCogIcon', name: 'Setting Display' },
+  { path: '/antrian', icon: 'TablesIcon', name: 'Antrian' },
+  { path: '/panggilan', icon: 'BellIcon', name: 'Panggilan' },
+  { path: '/pengguna', icon: 'OutlinePersonIcon', name: 'Pengguna' },
+  { path: '/grup-keamanan', icon: 'ForbiddenIcon', name: 'Grup Keamanan' },
 ];
 
 export default routes;
