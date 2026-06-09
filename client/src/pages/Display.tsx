@@ -1,13 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FC } from 'react';
 import PageTitle from '../components/Typography/PageTitle';
+import { getSocket, parseMessage } from '../lib/socket';
 
 const API_URL =
   (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ||
   'http://localhost:8000';
 
 const STORAGE_KEY = 'display_client_id';
-const POLL_INTERVAL_MS = 3000;
+const STORAGE_AUDIO = 'display_audio_enabled';
+const POLL_INTERVAL_MS = 30000; // fallback only; primary path = Socket.IO event
+
+// TTS template & helpers — server pakai Edge TTS (voice "female" / id-ID-GadisNeural by default)
+function formatNomor(nomor: string): string {
+  // Sisipkan spasi antara huruf & digit, supaya TTS bilang "A dua belas" bukan "A satu dua"
+  return nomor
+    .replace(/([A-Za-z])(\d)/g, '$1 $2')
+    .replace(/(\d)([A-Za-z])/g, '$1 $2');
+}
+
+function buildAnnouncement(nomor: string, namaLoket: string): string {
+  return `Nomor antrian ${formatNomor(nomor)}, silakan menuju ${namaLoket}`;
+}
 
 type StatusAntrian = 'menunggu' | 'dipanggil' | 'selesai' | 'batal';
 
@@ -46,7 +60,18 @@ type ApiResponse<T = unknown> = {
 
 type AntrianListResponse = {
   status: boolean;
+  message?: string;
   data?: Antrian[];
+};
+
+type TTSResponse = {
+  status: boolean;
+  message?: string;
+  data?: {
+    audio_id: string;
+    audio_url: string;
+    duration_estimate?: number;
+  };
 };
 
 function authHeaders(): Record<string, string> {
@@ -67,6 +92,20 @@ const DisplayPage: FC = () => {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const [audioEnabled, setAudioEnabled] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(STORAGE_AUDIO) === '1';
+  });
+  const [socketConnected, setSocketConnected] = useState(false);
+
+  // Tracking panggilan yang sudah diumumkan (id_loket -> waktu_panggil)
+  const announcedRef = useRef<Map<number, string>>(new Map());
+  // First-load flag — supaya panggilan lama tidak diumumkan ulang saat halaman dibuka
+  const firstLoadRef = useRef(true);
+  // Antrian audio URL untuk diputar berurutan
+  const audioQueueRef = useRef<string[]>([]);
+  const audioPlayingRef = useRef(false);
 
   const fetchClients = async () => {
     try {
@@ -114,7 +153,44 @@ const DisplayPage: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Polling antrian setiap 3 detik
+  // Real-time updates via Socket.IO.
+  // Server broadcast event "message" tiap ada panggilan / tiket baru.
+  // Strategi: dengar event → refetch antrian (server adalah source of truth).
+  // Polling fallback 30 detik di useEffect terpisah untuk safety net.
+  useEffect(() => {
+    let mounted = true;
+    let socket: ReturnType<typeof getSocket>;
+    try {
+      socket = getSocket();
+    } catch {
+      return; // SSR / browser-only guard
+    }
+
+    const onConnect = () => mounted && setSocketConnected(true);
+    const onDisconnect = () => mounted && setSocketConnected(false);
+    const onMessage = (raw: unknown) => {
+      const msg = parseMessage(raw);
+      // Panggilan baru / tiket baru → keduanya relevan; refetch antrian.
+      if (msg.kind === 'loket' || msg.kind === 'antrian-baru') {
+        fetchAntrian();
+      }
+    };
+
+    setSocketConnected(socket.connected);
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    socket.on('message', onMessage);
+
+    return () => {
+      mounted = false;
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.off('message', onMessage);
+      // Socket-nya singleton → jangan disconnect, biar dipakai halaman lain.
+    };
+  }, []);
+
+  // Fallback polling tiap 30 detik (untuk menutupi event yang miss saat disconnect)
   useEffect(() => {
     const t = setInterval(fetchAntrian, POLL_INTERVAL_MS);
     return () => clearInterval(t);
@@ -129,6 +205,80 @@ const DisplayPage: FC = () => {
       localStorage.setItem(STORAGE_KEY, String(selectedClientId));
     }
   }, [selectedClientId]);
+
+  // Reset announce tracking saat client berganti — supaya nggak rapal panggilan lama dari client baru
+  useEffect(() => {
+    announcedRef.current.clear();
+    firstLoadRef.current = true;
+  }, [selectedClientId]);
+
+  // Sync audio toggle ke localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(STORAGE_AUDIO, audioEnabled ? '1' : '0');
+  }, [audioEnabled]);
+
+  // --- TTS: generate audio dari teks lewat /api/tts, lalu antrian-kan untuk diputar ---
+  const playNext = () => {
+    const url = audioQueueRef.current.shift();
+    if (!url) {
+      audioPlayingRef.current = false;
+      return;
+    }
+    audioPlayingRef.current = true;
+    const a = new Audio(url);
+    a.onended = playNext;
+    a.onerror = playNext;
+    a.play().catch((err) => {
+      console.warn('[TTS] play() ditolak browser:', err);
+      // Autoplay biasanya ter-block sampai user interaksi.
+      audioPlayingRef.current = false;
+    });
+  };
+
+  const enqueueTTS = async (text: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/tts/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          voice: 'female',
+          language: 'indonesian',
+          // engine pakai default server (env TTS_DEFAULT_ENGINE — biasanya 'edge')
+        }),
+      });
+      const json: TTSResponse = await res.json();
+      if (!res.ok || !json.status || !json.data?.audio_url) {
+        console.warn('[TTS] generate gagal:', json.message);
+        return;
+      }
+      const audioUrl = json.data.audio_url.startsWith('http')
+        ? json.data.audio_url
+        : `${API_URL}${json.data.audio_url}`;
+      audioQueueRef.current.push(audioUrl);
+      if (!audioPlayingRef.current) playNext();
+    } catch (e) {
+      console.error('[TTS] error:', e);
+    }
+  };
+
+  const toggleAudio = async () => {
+    if (audioEnabled) {
+      setAudioEnabled(false);
+      return;
+    }
+    // Unlock browser autoplay dengan memutar audio singkat dari interaksi user
+    try {
+      const silent = new Audio(
+        'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=',
+      );
+      await silent.play().catch(() => {});
+    } catch {
+      // ignore
+    }
+    setAudioEnabled(true);
+  };
 
   // Track fullscreen state
   useEffect(() => {
@@ -166,6 +316,24 @@ const DisplayPage: FC = () => {
     });
   }, [selectedClient, antrian]);
 
+  // Deteksi panggilan baru → kirim ke TTS. Panggilan lama saat first-load tidak diumumkan.
+  useEffect(() => {
+    if (!selectedClient) return;
+    const isFirst = firstLoadRef.current;
+    for (const c of calls) {
+      if (!c.nomor || !c.waktu_panggil) continue;
+      const prev = announcedRef.current.get(c.loket.id);
+      if (prev === c.waktu_panggil) continue;
+      announcedRef.current.set(c.loket.id, c.waktu_panggil);
+      if (isFirst) continue; // baseline saja, jangan rapal
+      if (!audioEnabled) continue;
+      const text = buildAnnouncement(c.nomor, c.loket.nama_loket);
+      enqueueTTS(text);
+    }
+    firstLoadRef.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calls, selectedClient, audioEnabled]);
+
   const toggleFullscreen = async () => {
     if (!document.fullscreenElement && containerRef.current) {
       await containerRef.current.requestFullscreen().catch(() => {});
@@ -181,12 +349,41 @@ const DisplayPage: FC = () => {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <PageTitle>Display Client</PageTitle>
         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-          {lastUpdate && (
-            <span>
-              Update: {lastUpdate.toLocaleTimeString()}{' '}
-              <span className="inline-block w-2 h-2 ml-1 bg-green-500 rounded-full animate-pulse" />
-            </span>
-          )}
+          <span
+            title={socketConnected ? 'Realtime tersambung' : 'Realtime terputus (pakai fallback polling)'}
+            className={
+              'inline-flex items-center gap-1 px-2 py-1 rounded ' +
+              (socketConnected
+                ? 'text-green-700 bg-green-50 dark:text-green-300 dark:bg-green-900/30'
+                : 'text-yellow-700 bg-yellow-50 dark:text-yellow-300 dark:bg-yellow-900/30')
+            }
+          >
+            <span
+              className={
+                'inline-block w-2 h-2 rounded-full ' +
+                (socketConnected ? 'bg-green-500 animate-pulse' : 'bg-yellow-500')
+              }
+            />
+            {socketConnected ? 'LIVE' : 'reconnecting'}
+          </span>
+          {lastUpdate && <span>Update: {lastUpdate.toLocaleTimeString()}</span>}
+          <button
+            type="button"
+            onClick={toggleAudio}
+            title={
+              audioEnabled
+                ? 'Matikan suara TTS'
+                : 'Aktifkan suara TTS (perlu interaksi browser supaya autoplay tidak diblokir)'
+            }
+            className={
+              'px-3 py-2 text-sm font-medium border rounded-lg ' +
+              (audioEnabled
+                ? 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100 dark:text-green-200 dark:bg-green-900/30 dark:border-green-800'
+                : 'text-gray-700 bg-white border-gray-300 hover:border-gray-500 dark:text-gray-200 dark:bg-gray-700 dark:border-gray-600')
+            }
+          >
+            {audioEnabled ? '🔊 Suara ON' : '🔇 Aktifkan Suara'}
+          </button>
           <button
             type="button"
             onClick={toggleFullscreen}
@@ -347,8 +544,8 @@ const DisplayPage: FC = () => {
       </div>
 
       <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-        Panel ini polling tiap {POLL_INTERVAL_MS / 1000} detik. Pakai tombol Fullscreen untuk mode
-        layar TV.
+        Panel ini realtime via Socket.IO (fallback polling tiap {POLL_INTERVAL_MS / 1000} detik).
+        Pakai tombol Fullscreen untuk mode layar TV.
       </p>
     </>
   );
