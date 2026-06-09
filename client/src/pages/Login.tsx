@@ -58,14 +58,14 @@ const Login: React.FC = () => {
 
               <button
                 type="button"
-                className="inline-flex items-center justify-center w-full px-5 py-2 text-sm font-medium leading-5 text-purple-600 transition-colors duration-150 border border-transparent rounded-lg dark:text-purple-400 active:bg-transparent hover:border-gray-500 focus:border-gray-500 focus:outline-none focus:shadow-outline-gray"
+                className="inline-flex items-center justify-center w-full px-5 py-2 text-sm font-medium leading-5 text-gray-700 transition-colors duration-150 bg-white border border-gray-300 rounded-lg dark:text-gray-200 dark:bg-gray-700 dark:border-gray-600 hover:border-gray-500 focus:border-gray-500 focus:outline-none focus:shadow-outline-gray"
               >
                 <GithubIcon className="w-4 h-4 mr-2" aria-hidden="true" />
                 Github
               </button>
               <button
                 type="button"
-                className="inline-flex items-center justify-center w-full mt-4 px-5 py-2 text-sm font-medium leading-5 text-purple-600 transition-colors duration-150 border border-transparent rounded-lg dark:text-purple-400 active:bg-transparent hover:border-gray-500 focus:border-gray-500 focus:outline-none focus:shadow-outline-gray"
+                className="inline-flex items-center justify-center w-full mt-4 px-5 py-2 text-sm font-medium leading-5 text-gray-700 transition-colors duration-150 bg-white border border-gray-300 rounded-lg dark:text-gray-200 dark:bg-gray-700 dark:border-gray-600 hover:border-gray-500 focus:border-gray-500 focus:outline-none focus:shadow-outline-gray"
               >
                 <TwitterIcon className="w-4 h-4 mr-2" aria-hidden="true" />
                 Twitter
