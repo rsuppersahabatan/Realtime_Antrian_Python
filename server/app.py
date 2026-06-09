@@ -64,7 +64,11 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # Socket.IO — instance disimpan di app.state agar bisa diakses dari router
 # ---------------------------------------------------------------------------
-sio_manager = SocketManager(app=app, cors_allowed_origins=[])  # CORS ditangani middleware
+# Engine.IO punya CORS check terpisah dari FastAPI's CORSMiddleware.
+# Wildcard harus passed sebagai string '*', bukan list ['*']
+# (list di-match strict-equality, jadi origin "http://x" tidak match "*").
+_SIO_CORS = "*" if "*" in CORS_ORIGINS else CORS_ORIGINS
+sio_manager = SocketManager(app=app, cors_allowed_origins=_SIO_CORS)
 app.state.sio = sio_manager
 
 @app.sio.on("connect")
