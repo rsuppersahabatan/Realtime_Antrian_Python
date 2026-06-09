@@ -132,9 +132,10 @@ def init_db():
               `id_user` int(11) unsigned NOT NULL,
               PRIMARY KEY (`id`),
               UNIQUE KEY `unique_loket_user` (`id_loket`, `id_user`),
+              KEY `idx_loket_user_user` (`id_user`),
               CONSTRAINT `fk_loket_user_loket` FOREIGN KEY (`id_loket`) REFERENCES `loket`(`id`) ON DELETE CASCADE,
               CONSTRAINT `fk_loket_user_user` FOREIGN KEY (`id_user`) REFERENCES `users`(`id`) ON DELETE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
             """)
             
             cursor.execute("""
