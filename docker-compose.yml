@@ -18,7 +18,7 @@ services:
     networks:
       - antrian-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -48,7 +48,7 @@ services:
     container_name: antrian-frontend
     restart: unless-stopped
     ports:
-      - "${CLIENT_PORT:-3000}:80"
+      - "${CLIENT_PORT:-3000}:3000"
     depends_on:
       - backend
     networks:

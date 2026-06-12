@@ -1,27 +1,26 @@
-# Build stage
+# ---- Build stage ----
 FROM node:20-alpine AS build
-
 WORKDIR /app
 
-# Copy package.json and install dependencies
-COPY package.json package-lock.json* ./
-RUN npm install
+COPY package*.json ./
+RUN npm ci
 
-# Copy all files and build
 COPY . .
 RUN npm run build
 
-# Serve stage using Nginx
-FROM nginx:alpine
+# ---- Production SSR stage ----
+FROM node:20-alpine
+WORKDIR /app
 
-# Remove default nginx static assets
-RUN rm -rf /usr/share/nginx/html/*
+# Copy production build output
+COPY --from=build /app/dist /app/dist
+COPY --from=build /app/node_modules /app/node_modules
+COPY --from=build /app/package.json /app/package.json
 
-# Copy built assets from build stage
-COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 3000
 
-# Expose port 80
-EXPOSE 80
+ENV NODE_ENV=production
+ENV PORT=3000
 
-# Run nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Jalankan TanStack Start SSR server
+CMD ["node", "--enable-source-maps", "dist/server/server.js"]
