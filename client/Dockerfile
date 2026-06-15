@@ -6,6 +6,13 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+
+# VITE_API_URL HARUS tersedia saat build — Vite meng-inline nilainya ke bundle JS.
+# Nilai ini harus URL backend yang BISA DIAKSES DARI BROWSER (IP/domain server),
+# BUKAN 'localhost' dan BUKAN nama service Docker 'backend'.
+ARG VITE_API_URL=http://localhost:8000
+ENV VITE_API_URL=${VITE_API_URL}
+
 RUN npm run build
 
 # ---- Production SSR stage ----

@@ -45,6 +45,11 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
+      args:
+        # URL backend yang diakses dari BROWSER (IP/domain server + port host backend).
+        # Contoh: http://192.168.1.10:8093 atau http://antrian.rspersahabatan.co.id
+        # JANGAN pakai 'localhost' atau 'backend' di sini.
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
     container_name: antrian-frontend
     restart: unless-stopped
     ports:
